@@ -5,6 +5,7 @@ import { GloatBarrage } from "@/components/nine/gloats";
 import { Keypad } from "@/components/nine/keypad";
 import { ReactionBar, ReactionFloats, useFloaties } from "@/components/nine/reactions";
 import { Button } from "@/components/ui/button";
+import { trackEvent } from "@/lib/analytics";
 import { getRandomTaunts, Reaction } from "@/lib/gloats";
 import { haptic } from "@/lib/haptics";
 import { sfx } from "@/lib/sfx";
@@ -38,6 +39,10 @@ function NineGame() {
     setGloats([]);
     setTimer(0);
     setIsWon(false);
+
+    trackEvent("game_start", {
+      clues,
+    });
   }, []);
 
   useEffect(() => {
@@ -57,12 +62,16 @@ function NineGame() {
       newBoard[selected] = digit;
       setBoard(newBoard);
 
+      const isCorrect = digit === puzzleData.solution[selected];
+
       // Check if mistake was placed
-      if (digit !== puzzleData.solution[selected]) {
+      if (!isCorrect) {
         sfx.lose();
         setGloats(getRandomTaunts(3));
+        trackEvent("digit_placed", { digit, correct: false });
       } else {
         sfx.place();
+        trackEvent("digit_placed", { digit, correct: true });
       }
 
       // Check win condition
@@ -70,9 +79,12 @@ function NineGame() {
         setIsWon(true);
         sfx.win();
         haptic([50, 100, 50, 100, 100]);
+        trackEvent("game_win", {
+          duration_seconds: timer,
+        });
       }
     },
-    [selected, puzzleData, board],
+    [selected, puzzleData, board, timer],
   );
 
   const handleClear = useCallback(() => {
@@ -83,12 +95,14 @@ function NineGame() {
     newBoard[selected] = 0;
     setBoard(newBoard);
     sfx.clear();
+    trackEvent("digit_cleared");
   }, [selected, puzzleData, board]);
 
   const handleReaction = useCallback(
     (e: Reaction) => {
       pushFloat(e);
       sfx.react();
+      trackEvent("send_reaction", { reaction: e });
     },
     [pushFloat],
   );
@@ -96,7 +110,11 @@ function NineGame() {
   // Long press on "NINE" title to toggle cheat mode as described in README
   const handleTitleTouchStart = () => {
     const timerId = setTimeout(() => {
-      setCheat((c) => !c);
+      setCheat((c) => {
+        const next = !c;
+        trackEvent("toggle_cheat_mode", { enabled: next });
+        return next;
+      });
       haptic([30, 30, 30]);
     }, 1000);
     setLongPressTimer(timerId);
@@ -107,6 +125,12 @@ function NineGame() {
       clearTimeout(longPressTimer);
       setLongPressTimer(null);
     }
+  };
+
+  const toggleTheme = () => {
+    const newTheme = theme === "dark" ? "light" : "dark";
+    setTheme(newTheme);
+    trackEvent("change_theme", { theme: newTheme });
   };
 
   const counts = countDigits(board);
@@ -138,7 +162,7 @@ function NineGame() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+            onClick={toggleTheme}
           >
             {theme === "dark" ? "☀️" : "🌙"}
           </Button>
