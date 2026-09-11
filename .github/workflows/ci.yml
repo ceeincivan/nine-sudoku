@@ -2,9 +2,10 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ '**' ]
   pull_request:
-    branches: [ main, master ]
+    branches: [ '**' ]
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -49,19 +50,27 @@ jobs:
           mkdir -p dist
           cp -r .vercel/output/static/* dist/ 2>/dev/null || true
           if [ ! -f dist/index.html ]; then
-            cat << 'EOF' > dist/index.html
-          <!DOCTYPE html>
-          <html lang="en">
-          <head>
-            <meta charset="UTF-8" />
-            <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-            <title>Nine</title>
-          </head>
-          <body>
-            <div id="root"></div>
-          </body>
-          </html>
-          EOF
+            node -e '
+              const fs = require("fs");
+              const path = require("path");
+              const assets = fs.readdirSync("dist/assets");
+              const jsIndex = assets.find(f => f.startsWith("index-") && f.endsWith(".js"));
+              const cssIndex = assets.find(f => f.startsWith("index-") && f.endsWith(".css"));
+              const htmlContent = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>NINE - Sudoku</title>
+  ${cssIndex ? `<link rel="stylesheet" href="./assets/${cssIndex}" />` : ""}
+</head>
+<body class="min-h-screen bg-paper font-lexend text-ink antialiased selection:bg-ink selection:text-paper">
+  <div id="root"></div>
+  ${jsIndex ? `<script type="module" src="./assets/${jsIndex}"></script>` : ""}
+</body>
+</html>`;
+              fs.writeFileSync("dist/index.html", htmlContent);
+            '
           fi
 
       - name: Sync Capacitor
