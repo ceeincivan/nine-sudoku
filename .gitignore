@@ -10,3 +10,5 @@ dist
 .nitro
 .cache
 *.log
+apk/*
+!apk/.gitkeep
