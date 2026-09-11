@@ -14,6 +14,7 @@ declare global {
 }
 
 export const GA_MEASUREMENT_ID =
+  (typeof import.meta !== "undefined" && import.meta.env?.VITE_GA_MEASUREMENT_ID) ||
   (typeof process !== "undefined" && process.env?.VITE_GA_MEASUREMENT_ID) ||
   "G-MEASUREMENT_ID";
 
@@ -110,4 +111,9 @@ export function trackPageView(pagePath: string, pageTitle?: string): void {
     page_path: pagePath,
     page_title: pageTitle || (typeof document !== "undefined" ? document.title : ""),
   });
+}
+
+// Automatically install & initialize GA on load if client window exists
+if (typeof window !== "undefined") {
+  initGA(GA_MEASUREMENT_ID);
 }
